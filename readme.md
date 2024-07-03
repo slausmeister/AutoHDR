@@ -235,7 +235,7 @@ def smoothing(labels, method='moving_average', window_size=5, sigma=2):
 
 ## Comparing Augmentations
 
-<iframe src="../interactive_plot.html" style="width: 100%; height: 600px; border: none;"></iframe>
+<iframe src="./interactive_plot.html" style="width: 100%; height: 600px; border: none;"></iframe>
 
 ## Simple Label Estimate
 
