@@ -4,6 +4,12 @@ import random
 
 
 def grid_mask(shape, r, d, delta_x, delta_y):
+    """
+    Creates a grid mask consisting of values zero and one for a given shape and parameters. A grid consits of small mask units, 
+    where the parameter r in (0,1) denotes the ratio of the shorter visable edge in a unit ans the unit size d=random(d_{min},d_{max})
+    is randomly chosen. Lastly the distances delta_x,delta_y in (0,d-1) between the first intact unit and the boundary of the image 
+    are also chosen randomly.
+    """
     mask = torch.ones(shape)
     ones_l = round(r*d)
     zeros_l = d-ones_l
@@ -17,10 +23,10 @@ def grid_mask(shape, r, d, delta_x, delta_y):
             mask[:,start_x:end_x, start_y:end_y] = 0
             start_y = end_y + ones_l
         start_x = end_x + ones_l
-        start_y = delta_y
-        
+        start_y = delta_y    
 
     return mask
+
 
 def gridmask_deletion(img, r, d_min, d_max):
     """
@@ -51,10 +57,10 @@ def gridmask_deletion(img, r, d_min, d_max):
     d = random.randint(d_min, d_max)
     delta_x = random.randint(0,d-1)
     delta_y = random.randint(0,d-1)
-    
 
     M = grid_mask(img.size(), r, d, delta_x, delta_y )
     masked_img = torch.mul(img, M)
+    
     return masked_img
 
 
