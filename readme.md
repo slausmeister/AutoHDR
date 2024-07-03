@@ -126,9 +126,7 @@ We initialize Google's vit-base-patch16-224 ViT, change out the classifyer and s
 
 Fig 3: We see that the network pretty much converges after the first epoch until it eventually overfits. We will later try to mitigate the overfitting using label smoothing (see section [Label Smoothing](#label-smoothing)). In both cases the final loss is usually around 0.02.
 
-## Using Data Augmentation
-
-
+Even though both the pre- and the unpretrained approach both prove very successfull, we try to further push the effectiveness of out training. The idea is, that a photographer might want to establish a certain style for a single shooting. If he now were to edit a small subset of these images in that style, the algorithm can quickly pick up on it and edit the rest. For this however we need to learn effectively on very small datasets. We therefore introduce data augmentation. It will prove similarly effective (see section [Evaluating Data Augmentations](#Evaluating-Data-Augmentations)).
 
 # Data Augmentation
 Having only a limited amount of labeled data at hand, the generation of synthetic data is a natural approach to improve the sufficiency and diversity of training data. Otherwise, the model could end up over-fitting to the training data. The basic idea of augmenting data for training is to make small modifications to the data such that it is close to the real one but slightly different. For computer vison tasks this means to one changes small parts of the picture such that the main content stays recognisable, e.g. change the background when the task is to detect an object in the foreground. For object detection tasks there are extensive surveys available describing applicable data augmentation methods and providing a numerical analysis of their performance, see [Kumar et al., 2023] and [Yang et al., 2022]. However, our problem sets a different task to solve: recognising objects and their luminosity relative to the rest of the picture. Due to the lack of experience of the performance of the methods available, we pick seven promising basic data augmentation methods and apply them to the problem to see how they perform.
@@ -274,7 +272,13 @@ def smoothing(labels, method='moving_average', window_size=5, sigma=2):
     return smoothed_labels
 ```
 
-# Results 
+# Evaluating Data Augmentations
+
+
+
+![](/assets/compare_aug_losses.png)
+
+Fig blah: Comparisson average epoch losses of different augmentations. We see that the augmentations perform similar and all significantly better then without augmentation. See [stani-stein.com/AutoHDR](https://www.stani-stein.com/AutoHDR/#evaluating-data-augmentations) for an interactive version of the plot.
 
 ## Attention Heads
 
