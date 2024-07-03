@@ -164,7 +164,7 @@ plot_images(imgs)
 By taking out parts of the picture one drops out information that could help to learn less sensitive information which the resulst in a more robust model. Known examples for Image Erasing are random erasing, cutout or hide-and-seek, see [Kumar et al., 2023].
 **Gridmask deletion**
 The perviously mentioned dropout methods have two main problems for our task. Since they delete a continuous region or an excessive amount of data they might delete important parts for our task, i.e. as our problem cannot be fully reduced to object identification we cannot be sure which part of the background is important. To overcome these problems, in [Chen et al., 2020] the so-called GridMask data augmentation method is introduced.
-Here a grid consiting of small mask units is created, where the parameter $$r\in (0,1)$$ denotes the ratio of the shorter visable edge in a unit, an the unit size $$d=\text{random}(d_{min},d_{max})$$ is randomly chosen. Lastly the distances $$\delta_x,\,\delta_y\in (0,d-1)$$ between the first intact unit and the boundary of the image are also chosen randomly. For these parameters a grid mask is created which is later applied to the actual image.
+Here a grid consiting of small mask units is created, where the parameter $$r\in (0,1)$$ denotes the ratio of the shorter visable edge in a unit, and the unit size $$d=\text{random}(d_{min},d_{max})$$ is randomly chosen. Lastly the distances $$\delta_x,\,\delta_y\in (0,d-1)$$ between the first intact unit and the boundary of the image are also chosen randomly. For these parameters a grid mask is created which is later applied to the actual image.
 ```python
 def grid_mask(shape, r, d, delta_x, delta_y):
     mask = torch.ones(shape)
@@ -210,7 +210,7 @@ plot_images(imgs)
 
 # Label smoothing
 ## Motivation
-Label smoothing tackles the problem that the labels in the dataset are be noisy. As the labels are obtained by manually setting the values it is almost inevitable to have noisy labels. For classification tasks noisy labels are even more harmful as this means that a picture is misscategorized. In [Szegedy et al., 2016] the idea of label smoothing is introduced to overcome this problem: one then assumes that for a small $$\varepsilon>0$$ the training set label is correct with only probability $$1-\varepsilon$$ and incorrect otherwise.
+Label smoothing tackles the problem that the labels in the dataset are be noisy. As the labels are obtained by manually setting the values it is almost inevitable to have noisy labels. For classification tasks noisy labels are even more harmful as this means that a picture is misscategorized. In [Szegedy et al., 2016] the idea of label smoothing is introduced to overcome this problem: one then assumes that for a small $\varepsilon>0$ the training set label is correct with only probability $1-\varepsilon$ and incorrect otherwise.
 ## Label smoothing methods
 As there are no discrete classes but contiuous values we work with two different approaches to smooth the labels. First, we locally adjust the values compared to each other, meaning that we create a series of averages by using the idea of a mathematical convolution with a constant function which heuristically can be seen as averaging out the values inside a window. Second, we add a random gaussian noise to each value based on the assumptions that all labels are noisy and exact labels are not available. So by noising the labels on purpose, we hopefully get a more robust model. The implementation of the smoothing is shown here.
 ```python
