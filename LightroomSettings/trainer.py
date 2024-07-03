@@ -132,6 +132,6 @@ def trainer(model_params, training_params, data_loader, val_loader):
     torch.save(model.state_dict(), model_path)
     #print(f"Model parameters saved to {model_path}")
     training_time_end = time.time()
-    print("Total time: " + convert_seconds_to_hms((training_time_end - training_time_start) * training_params['total_combinations'] * training_params['iterations']))
+    # print("Total time: " + convert_seconds_to_hms((training_time_end - training_time_start) * training_params['total_combinations'] * training_params['iterations']))
 
     return model, loss_array, val_loss_array

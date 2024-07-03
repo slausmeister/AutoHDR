@@ -1,5 +1,5 @@
 ---
-permalink: /ViTR/
+permalink: /AutoHDR/
 layout: single
 toc: true
 toc_label: "Outline"
@@ -7,6 +7,8 @@ toc_sticky: true
 ---
 
 *joint work with [Lucas Schmitt](https://structures.uni-heidelberg.de/team.php?show_member_yrc=342)*
+
+Best viewed in an HDR compatible browser (Chrome) on an HDR compatible display.
 
 # Introduction
 Modern photography software like Adobe Lightroom and Darktable play a crucial role in the digital photography workflow, particularly for photographers who shoot in RAW format. RAW files contain unprocessed data directly from a camera's image sensor, preserving the highest possible quality and providing extensive flexibility for post-processing. Unlike JPEGs, which are compressed and processed in-camera, RAW files allow photographers to make significant adjustments to exposure, color balance, contrast, and other parameters without degrading image quality. This capability is essential for professional photographers and enthusiasts seeking to achieve the highest quality results.
@@ -51,7 +53,7 @@ The only problem with Adobe's HDR implementation is that the autosettings do not
   </tr>
 </table>
 
-Fig 2: On the left the settings suggested by Lightroom, on the right the settings suggested by our algorithm. Notice how Lightroom's implementation boosts the shadows and therefore not using the entire brightness spectrum available. We again point out the nescessity for an HDR compatible browser/display.
+Fig 2: On the left the settings suggested by Lightroom, on the right the settings suggested by our algorithm. Notice how Lightroom's implementation boosts the shadows and is not using the entire brightness spectrum available. We again point out the nescessity for an HDR compatible browser/display.
 
 The aim of the project it to write an algorithm that, given a small training dataset of RAWs with the corresponding Lightroom settings, finds a good suggestion for the settings to properly make use of the HDR colorspace.
 
@@ -72,7 +74,6 @@ model.classifier = nn.Sequential(
 )
 ```
 
-Our training data is quite limited (~350 images). We therefore propose two approaches: Utilizing a pretrained foundation model and data augmentation.
 
 # Loading and preprocessing Data
 One of the main challenges is to load and preprocess the available data in an efficient way. As we are using a Vision Transformer that is pretrained on normalized rgb images of size 224x224 it is senseful to transform our data to the same shape. So, with the following workflow we preprocess RAW data to PyTorch-tensors containing the  normalized image data.
@@ -110,6 +111,23 @@ base_data, val_data = torch.utils.data.random_split(tensor_data, validation_spli
 ```
 
 # Model training
+
+Our training data is quite limited (~350 images). Thus we followed two approaches from the begining: Utilizing a pretrained foundation model and data augmentation.
+
+As the labels are continuous values we employ an MSE loss and train using Adam in 10 epochs using batches of size 12 with a validation split of [0.8, 0.2] and a low learning rate of 0.0005.
+
+## With and without pretraining
+
+We initialize Google's vit-base-patch16-224 ViT, change out the classifyer and start training. We expected, that during fine tuning we'd need to carefully consider which layers to freeze and which layers to train. In actuallity the naiv approach of letting the model adjust all training parameters with the same learning rate works increadibly well converging after essentially one epoch. Therefore we also compared training without pretraining and see, that whilst convergence is a bit slower, the model also learns to capture the correct relationship.
+
+| With Pretraining | Without Pretraining |
+| :------: | :------: |
+| ![Loss](./assets/pretrained_loss.png) | ![Loss](./assets/unpretrained_loss.png) |
+
+Fig 3: We see that the network pretty much converges after the first epoch until it eventually overfits. We will later try to mitigate the overfitting using label smoothing (see section [Label Smoothing](#label-smoothing)). In both cases the final loss is usually around 0.02.
+
+## Using Data Augmentation
+
 
 
 # Data Augmentation
