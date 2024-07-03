@@ -6,6 +6,8 @@ toc_label: "Outline"
 toc_sticky: true
 ---
 
+*joint work with [Lucas Schmitt](https://structures.uni-heidelberg.de/team.php?show_member_yrc=342)*
+
 # Introduction
 Modern photography software like Adobe Lightroom and Darktable play a crucial role in the digital photography workflow, particularly for photographers who shoot in RAW format. RAW files contain unprocessed data directly from a camera's image sensor, preserving the highest possible quality and providing extensive flexibility for post-processing. Unlike JPEGs, which are compressed and processed in-camera, RAW files allow photographers to make significant adjustments to exposure, color balance, contrast, and other parameters without degrading image quality. This capability is essential for professional photographers and enthusiasts seeking to achieve the highest quality results.
 
@@ -31,7 +33,7 @@ The aim of the project it to write an algorithm that, given a small training dat
 
 # Architectual Concerns
 
-Our model has 8 settings to play with. Exposure adjusts overall brightness, ensuring a balanced level where both shadows and highlights retain detail without overexposure or underexposure. Contrast controls the difference between dark and light areas, essential for HDR. Highlights manage brightness in lighter parts, crucial for avoiding overexposure and maintaining detail in bright regions. Shadows adjust brightness in darker areas, vital for revealing details without making them unnaturally bright. In other words or model needs understand the effect of the settings on both the darkest and the brightest areas of the images at the same time; we have long range dependencies. Our choice therefore lands on a Vision Transformer.
+Our model has 8 settings to play with. Exposure adjusts overall brightness, ensuring a balanced level where both shadows and highlights retain detail without overexposure or underexposure. Contrast controls the difference between dark and light areas, essential for HDR. Highlights manage brightness in lighter parts, crucial for avoiding overexposure and maintaining detail in bright regions. Shadows adjust brightness in darker areas, vital for revealing details without making them unnaturally bright. In other words or model needs to understand the effect of the settings on both the darkest and the brightest areas of the images at the same time; we have long range dependencies. Our choice therefore lands on a Vision Transformer.
 
 
 The settings are all in the interval (-100,100) exept for Exposure which lies in (-5,5). We can scale all these intervalls down to (-1,1) and train our model to $(-1,1)^n$ by choosing $\operatorname{tanh}()$ as the final activation of our ViT. After training we can rescale the logits to use them in Lightroom. If we want to use the standard Google ViT we can just replace the final layer as follows:
@@ -48,7 +50,7 @@ model.classifier = nn.Sequential(
 Our training data is quite limited (~350 images). We therefore propose two approaches: Utilizing a pretrained foundation model and data augmentation.
 
 # Loading and preprocessing Data
-One of the main challenges is to load and preprocess the available data in an efficient way. Using a ViT that is pretrained on normalized rgb images of size 224x224 makes it senseful to transform our data to the same shape. So with the following function we preprocess RAW data to img_tensors that fit well to our network.
+One of the main challenges is to load and preprocess the available data in an efficient way. As we are using a Vision Transformer that is pretrained on normalized rgb images of size 224x224 it is senseful to transform our data to the same shape. So, with the following workflow we preprocess RAW data to PyTorch-tensors containing the  normalized image data.
 ```python
 def preprocess_image(self, rgb_array):
     preprocess = transforms.Compose([
@@ -59,7 +61,7 @@ def preprocess_image(self, rgb_array):
     img_tensor = preprocess(rgb_array)
     return img_tensor
 ```
-To get the corresponding labels we need to read the XMP-files and extract the values. To use it as labels for our model we normalize them such that all values are between -1 and 1.
+To get the corresponding labels we need to read the XMP-files and extract the values. As mentioned above it is also neccessary to rescale all values to $(-1,1)$.
 ```python
 values = [
     5 ** (-1) *float(root.find('.//rdf:Description[@crs:Exposure2012]', ns).attrib['{http://ns.adobe.com/camera-raw-settings/1.0/}Exposure2012']),
@@ -68,13 +70,13 @@ values = [
 ]
 ```
 Throughout the process of developement it turned out that loading a RAW using rawpy is the most time expensive task in the data-preparation process.
-Nevertheless we want to stick to the PyTorch-Dataset framework to make use of the Pytorch-Dataloader later on. This means we need a framework where trainingdata can be directly accessed without reloading the RAWs every time.
+Nevertheless we want to stick to the PyTorch-Dataset framework to make use of the Pytorch-Dataloader later on. This means that we need a framework where training data can be directly accessed without reloading the RAWs every time.
 
-To solve this problem we seperated the Dataset in three parts: RawImageDatatset, ImageDataset and AugmentedDataset. The task distribution is that the first one is used to access to RAW and XMP files and does all preprocessing work, the second one uses a RawImageDataset to store all needed data in a way that it can be accessed time efficiently. The last one offers all possibilitys of data augmentation or label smoothing without interferring with the technical parts.
+To solve this problem we seperated the Dataset architecture in three parts: RawImageDatatset, ImageDataset and AugmentedDataset. The task distribution is that the first one is used to access to RAW and XMP files and does all preprocessing work, the second one uses a RawImageDataset to store all needed data in a way that it can be accessed time efficiently. The last one offers all possibilitys of data augmentation or label smoothing without interferring with the technical parts.
 
 The workflow is then the following: we initialize a RawImageDataset that enables us to access preprocessed data. We then hand this raw data to a ImageDataset which loads every image via the RawImageDataset framework and then stores it as PyTorch-tensors. We are now able to directly access the tensors which are rapidly loaded using the torch.load function.
 
-Since we sticked to the general framework we are now able to use further existing methods.
+Since we stick to the general framework we are able to use methods from torch.utils.data that do further ML relatet preprocessing as splitting the dataset or creating batches for training.
 ```python
 raw_data = RawImageDataset(directory_path)
 tensor_data = ImageDataset(raw_data, reload_data=reload_data)
@@ -87,12 +89,8 @@ base_data, val_data = torch.utils.data.random_split(tensor_data, validation_spli
 Having only a limited amount of labeled data at hand, the generation of synthetic data is a natural approach to improve the sufficiency and diversity of training data. Otherwise, the model could end up over-fitting to the training data. The basic idea of augmenting data for training is to make small modifications to the data such that it is close to the real one but slightly different. For computer vison tasks this means to one changes small parts of the picture such that the main content stays recognisable, e.g. change the background when the task is to detect an object in the foreground. For object detection tasks there are extensive surveys available describing applicable data augmentation methods and providing a numerical analysis of their performance, see [Kumar et al., 2023] and [Yang et al., 2022]. However, our problem sets a different task to solve: recognising objects and their luminosity relative to the rest of the picture. Due to the lack of experience of the performance of the methods available, we pick seven promising basic data augmentation methods and apply them to the problem to see how they perform.
 
 ## Data Augmentation methods
-```python
-from torchvision import transforms
-import numpy as np
-import scipy
-```
-We follow the taxonomy of basic data augmentation methods proposed by [Kumar et al., 2023]. For common methods we use the available implementations provided by torchvision. For the last two augmentation methods there are no implementations inside a ML framework available so we implemented them manually based on the corresponding paper. In the following we introduce each method that is used for the training process and give a short heuristical explanation how we think the method could benefit or harm the training.
+
+We follow the taxonomy of basic data augmentation methods proposed by [Kumar et al., 2023]. For common methods we use the available implementations provided by torchvision. For the last two augmentation methods there are no implementations available inside a ML framework so we implemented them manually based on the corresponding paper. In the following we introduce each method that is used for the training process and give a short heuristical explanation how we think the method could benefit or harm the training.
 
 ### Geometric Image Manipulation
 **Rotation and Flipping**
@@ -111,7 +109,7 @@ plot_images(imgs)
 
 **Shearing**
 
-By randomly shearing the picture we are -heuristically speaking- giving the model different perspectives on the picture. Technically we are changing the proportion of the objects and its spacial relations. This seems to be a good approach for our task as the luminosity of the picture should not depend on the concrete shape of the objects included. What in fact could possibly lead to problems is that we are generating black, and thus dark, regions on the border of the picture.
+By randomly shearing the picture we are -heuristically speaking- giving the model different perspectives on the picture. Technically we are changing the proportion of the objects and its spatial relations. This seems to be a good approach for our task as the luminosity of the picture should not depend on the concrete shape of the objects included. What in fact could possibly lead to problems is that we are generating black, and thus dark, regions on the border of the picture.
 
 ```python
 imgs = [original_img]
@@ -126,7 +124,7 @@ plot_images(imgs)
 
 **Random Cropping and Resize**
 
-By randomly cropping a patch out of the original picture we hopefully create a different context for the objects included. This means that we try leave out uninteressting or even disturbing elements on the edge of the picture and focus on the main content in the center. Of course this is based on the assumption that we do not loose any crucial information by cropping. As before the structure and colours of the main content stay untouched.
+By randomly cropping a patch out of the original picture we hopefully create a different context for the objects included. This means that we try to leave out uninteresting or even disturbing elements on the edge of the picture and focus on the main content in the center. Of course this is based on the assumption that we do not loose any crucial information by cropping. As before the structure and colours of the main content stay untouched.
 
 ```python
 imgs = [original_img]
