@@ -20,13 +20,38 @@ Since October 2023 Adobe Lightroom has added native support for high dynamic ran
 
 You can check if your current display supports HDR by comparing the two images below. If they appear similar, then your display does not support HDR. On a proper HDR display the sun should almost be blining and shadows should be rich in detail, just as your eye would experience it in real life.
 
-Non HDR Image             |  HDR Image
-:-------------------------:|:-------------------------:
-![](./assets/non_hdr_expl.jpg)  |  ![](./assets/hdr_expl.jpg)
+<table>
+  <tr>
+    <th>Unedited Raw</th>
+    <th>Non HDR Image</th>
+    <th>HDR Image</th>
+  </tr>
+  <tr>
+    <td><img src="./assets/unedited.jpg" width="200"></td>
+    <td><img src="./assets/non_hdr_expl.jpg" width="200"></td>
+    <td><img src="./assets/hdr_expl.jpg" width="200"></td>
+  </tr>
+</table>
+
+
+Fig 1: The image on the left is an unedited RAW image, the one in the middle has been edited and exported using a standard non HDR workflow and the image on the right with an HDR workflow. If the two edited images appear the same to you, then your browser/display do not support HDR playback. 
 
 HDR technology is still in its early stages, so most displays do not support it yet. However, your phone might, as it typically offers the best display quality for the average consumer. Most laptops can not increase the brightness of a subset of pixels significantly without also increasing the brightness of dark parts. Therefore the bright parts of the HDR image are artificially darkend, destroying the HDR effect.
 
-The only problem with Adobe's HDR implementation is that the autosettings do not consider the expanded brightness space. They tend to compress the brightness scale down to the usual allowed brightness scale. Therefore the blinding sunset becomes just bright and the dark shadow becomes brighter. The whole image now seems as if it were not using HDR. A photographer would now need to adjust every single setting to restore the HDR effect, negating the usefullness of the autosettings.
+The only problem with Adobe's HDR implementation is that the autosettings do not consider the expanded brightness space. They tend to compress the brightness scale down to the usual allowed brightness scale. Therefore the blinding sunset becomes just bright and the dark shadow becomes brighter. The whole image now seems as grey and if it were not using HDR. A photographer would now need to adjust every single setting to restore the HDR effect, negating the usefullness of the autosettings.
+
+<table>
+  <tr>
+    <th>Adobe Autosettings</th>
+    <th>Model Predicted Autosettings</th>
+  </tr>
+  <tr>
+    <td><img src="./assets/AdobeHDR.jpg" width="200"></td>
+    <td><img src="./assets/AutoHDR.jpg" width="200"></td>
+  </tr>
+</table>
+
+Fig 2: On the left the settings suggested by Lightroom, on the right the settings suggested by our algorithm. Notice how Lightroom's implementation boosts the shadows and therefore not using the entire brightness spectrum available. We again point out the nescessity for an HDR compatible browser/display.
 
 The aim of the project it to write an algorithm that, given a small training dataset of RAWs with the corresponding Lightroom settings, finds a good suggestion for the settings to properly make use of the HDR colorspace.
 
@@ -83,6 +108,8 @@ tensor_data = ImageDataset(raw_data, reload_data=reload_data)
     
 base_data, val_data = torch.utils.data.random_split(tensor_data, validation_split)
 ```
+
+# Model training
 
 
 # Data Augmentation
@@ -197,7 +224,7 @@ plot_images(imgs)
 **Local Rotation**
 This method is introduced in [Kim et al., 2021] as part of a collection of local augmentation methods. In this case local rotation can be seen as a further developement of global rotation. It was developed as an augmentation method for CNNs. As CNNs are biased to local features which is a disadvantage for generalization, we cut the picture in four patches that are then randomly rotated and glued toghether. In this way we might break up some strong local features, which should be advantegeous for our problem that is mainly interessted in the global luminosity. In [Kim et al., 2021] it is stated that the CIFAR100 test accuracy for a ResNet is superior if local rotation is used compared to global rotation.
 
-For our ViT however, the local rotation only changes the order of the patches. This might be detremental for tasks such as object recognition, as permutations might lead to objects being ripped appart. But for our task the locations should not destroy the training data, as the global illumination of the image stays essentially the same.
+The local rotation introduces significant discontinuities into the image. This might be detremental for tasks such as object recognition, as permutations might lead to objects being ripped appart. But for our task the locations should not destroy the training data, as the global illumination of the image stays essentially the same.
 
 ```python
 imgs = [original_img]
