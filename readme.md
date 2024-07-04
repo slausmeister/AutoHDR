@@ -128,6 +128,38 @@ Fig 3: We see that the network pretty much converges after the first epoch until
 
 Even though both the pre- and the unpretrained approach both prove very successful, we try to further push the effectiveness of out training. The idea is, that a photographer might want to establish a certain style for a single shooting. If he now were to edit a small subset of these images in that style, the algorithm can quickly pick up on it and edit the rest. For this however we need to learn effectively on very small datasets. We therefore introduce data augmentation. It will prove similarly effective (see section [Evaluating Data Augmentations](#Evaluating-Data-Augmentations)).
 
+# Falsification Attempt
+ Before we pursue data augmentation, we want to understand the networks almost unreasonable performance a bit better. For this we investigate two things: The training data and the attention heads.
+
+## Understanding the Data
+Our first suspicion for the unreasonable performance of our network is, that the data has a very simple structure. It might be, that Settings such as Exposure or Saturation are essentially the same for all images in the training data. If this were the case, the network could always make a constant guess without being penalized significantly. We are therefore interested in the underlying statistics of the training labels.
+
+![](./assets/data_statistics.png)
+
+Fig 4: Histogram of the labels in the training dataset
+
+We can clearly see, that some labels are actually quite simple. Saturation and Vibrance almost always have the same value. We expect that the network learns low weights and a bias reflecting the value for these settings.
+
+![](./assets/nework_wab.png)
+
+Fig 5: In red the bias value for each setting and in blue the average connection strength to that node.
+
+We can see that this hypothesis was false. There is no clear pattern of a specific bias with low connections to it. Keep in mind that due to regularization the average magnitude of incoming connections is also essentially the same for all nodes. Furthermore the plot is anything but constant for different runs indicating that the network is actually responding to the image and not just making a fixed guess.
+
+Still, we suspect that a fixed guess might perform quite well. We therefore calculate the mean and standard deviation for each label and construct a simple guesser that picks its label suggestions from a normal distribution with the calculated variance and standard deviation. This guesser considers only the label space and does not take the input image into consideration
+
+![](./assets/mean_and_std.png)
+
+Fig 6: Mean and standard deviation of labels in training dataset.
+
+We evaluate this guesser on the validation set with an 80, 20 training - validation split an get a quite consistent loss of ~8%. This is definitely a very good performance considering the guesser did not look at the actual image. It is therefore fair to say that the underlying data is quite homogenous. Still the random guesser is fortunately outperformed by our ViT model, which consistently achieves loss rates of around ~2%.
+
+## Understanding the Attention Heads
+We now seek to understand the attention heads. The hope being that there is a certain structure here, that indicates that the network is actually considering different aspects of the input image. As the settings affect the brightness spectrum of the image, we hypothesize that the network should pay attention to shadows, highlights and especially bright light sources (such as the sun).
+
+The ViT works on 16 times 16 tokens plus the cls token in 12 layers using 12 attention heads. For our visualization we highlight the patches that were most addend by each attention head for the cls token. We select a subset of layers and attention maps to make it a bit less convoluted.
+
+
 # Data Augmentation
 Having only a limited amount of labeled data at hand, the generation of synthetic data is a natural approach to improve the sufficiency and diversity of training data. Otherwise, the model could end up over-fitting to the training data. The basic idea of augmenting data for training is to make small modifications to the data such that it is close to the real one but slightly different. For computer vision tasks this means to one changes small parts of the picture such that the main content stays recognizable, e.g. change the background when the task is to detect an object in the foreground. For object detection tasks there are extensive surveys available describing applicable data augmentation methods and providing a numerical analysis of their performance, see [Kumar et al., 2023] and [Yang et al., 2022]. However, our problem sets a different task to solve: recognizing objects and their luminosity relative to the rest of the picture. Due to the lack of experience of the performance of the methods available, we pick seven promising basic data augmentation methods and apply them to the problem to see how they perform.
 

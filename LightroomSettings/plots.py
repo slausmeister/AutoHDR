@@ -1,29 +1,42 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 labels = ["Exposure", "Contrast", "Highlights", "Shadows", "Whites", "Blacks", "Vibrance", "Saturation"]
 
-def plot_label_histogram(data_loader, label_name):
-    # Define the possible labels and get the index of the specified label
+def plot_label_histograms(data_loader, label_names):
+    # Validate all label names
+    for label_name in label_names:
+        if label_name not in labels:
+            raise ValueError(f"Label name {label_name} is not in the list of known labels.")
+
+    num_labels = len(label_names)
     
-    if label_name not in labels:
-        raise ValueError(f"Label name {label_name} is not in the list of known labels.")
+    # Prepare subplots with 2 rows and 4 columns
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(20, 12))
+    axes = axes.flatten()  # Flatten the 2D array to 1D for easier indexing
     
-    label_index = labels.index(label_name)
+    # Collect the specified label values for each label
+    for i, label_name in enumerate(label_names):
+        label_index = labels.index(label_name)
+        label_values = []
+        for img_tensors, img_labels in data_loader:
+            label_values.extend(img_labels[:, label_index].numpy())
+        
+        # Plot the histogram on the appropriate subplot
+        axes[i].hist(label_values, bins=30, edgecolor='black', alpha=0.7)
+        axes[i].set_title(f"Histogram of {label_name}")
+        axes[i].set_xlabel(label_name)
+        axes[i].set_ylabel("Frequency")
+        axes[i].grid(True)
+        axes[i].set_xlim(-1, 1)
     
-    # Collect the specified label values
-    label_values = []
-    for img_tensors, img_labels in data_loader:
-        label_values.extend(img_labels[:, label_index].numpy())
+    # Hide any unused subplots
+    for j in range(num_labels, len(axes)):
+        axes[j].set_visible(False)
     
-    # Plot the histogram
-    plt.figure(figsize=(10, 6))
-    plt.hist(label_values, bins=30, edgecolor='black', alpha=0.7)
-    plt.title(f"Histogram of {label_name}")
-    plt.xlabel(label_name)
-    plt.ylabel("Frequency")
-    plt.grid(True)
-    plt.xlim(-1,1)
+    plt.tight_layout()
     plt.show()
 
 
@@ -43,6 +56,7 @@ def plot_bias_and_linear_coefficients(model):
     
     # Calculate linear coefficients
     linear_coeffs = [weights[i].mean() for i in range(8)]
+    abs_coeffs = [abs(weights[i]).mean() for i in range(8)]
 
     # Create a new figure
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), gridspec_kw={'height_ratios': [1, 1]})
