@@ -155,32 +155,32 @@ Fig 6: Mean and standard deviation of labels in training dataset.
 We evaluate this guesser on the validation set with an 80, 20 training - validation split and get a quite consistent loss of ~8%. This is definitely a very good performance considering the guesser did not look at the actual image. It is therefore fair to say that the underlying data is quite homogenous. Still, the random guesser is fortunately outperformed by our ViT model, which consistently achieves loss rates of around ~2%.
 
 ## Understanding the Attention Heads
-We now seek to understand the attention heads. The hope being that there is a certain structure here, that indicates that the network is actually considering different aspects of the input image. As the settings affect the brightness spectrum of the image, we hypothesize that the network should pay attention to shadows, highlights and especially bright light sources (such as the sun).
+We now seek to understand the attention heads. The hope is that there is a certain structure here, indicating that the network is actually considering different aspects of the input image. As the settings affect the brightness spectrum of the image, we hypothesize that the network should pay attention to shadows, highlights and especially bright light sources (such as the sun).
 
-The ViT works on 16 times 16 tokens plus the cls token in 12 layers using 12 attention heads. For our visualization we highlight the patches that were most addend by each attention head for the cls token. We select a subset of layers and attention maps to make it a bit less convoluted.
+The ViT works on 16 times 16 tokens plus the cls token in 12 layers using 12 attention heads. For our visualization we highlight the patches that were most added by each attention head for the cls token. We select a subset of layers and attention maps to make it a bit less convoluted.
 
 | Input | Attention Maps |
 | :------: | :------: |
 | ![Loss](./assets/attention_input.jpg) | ![Loss](./assets/attention_map.png) |
 
-Fig 7: An image we've fed into the model and a selection of attention heads. We've selected every second attention head from every second transformer layer.
+Fig 7: The left image was provided as input to the model, and a subset of attention heads was chosen for the right visualization. We selected every second attention head from every second transformer layer.
 
-All though interpreting attention maps should always be done with a grain of salt, one can still clearly see that heads generally focus on specific brightness regions. This indicates that the networks suggestion is actually founded in the input data as it pays attention to similar areas in the images as a photographer would do when determining brightness settings.
+Although interpreting attention maps should always be done with a grain of salt, one can tell that heads generally focus on specific brightness regions. This indicates that the network's suggestion is actually based on the input data as it pays attention to similar areas in the images as a photographer would do when determining brightness settings.
 
-Overall it is fair to say that even though the underlying data is not too complicated, that is at least not taking obvious escapes such as learning specific values independent of the input.
+Overall, it is fair to say that even though the underlying data is not too complicated, that is at least not taking obvious escapes such as learning specific values independent of the input.
 
 # Data Augmentation
-Having only a limited amount of labeled data at hand, the generation of synthetic data is a natural approach to improve the sufficiency and diversity of training data. Otherwise, the model could end up over-fitting to the training data. The basic idea of augmenting data for training is to make small modifications to the data such that it is close to the real one but slightly different. For computer vision tasks this means to one changes small parts of the picture such that the main content stays recognizable, e.g. change the background when the task is to detect an object in the foreground. For object detection tasks there are extensive surveys available describing applicable data augmentation methods and providing a numerical analysis of their performance, see [Kumar et al., 2023] and [Yang et al., 2022]. However, our problem sets a different task to solve: recognizing objects and their luminosity relative to the rest of the picture. Due to the lack of experience of the performance of the methods available, we pick seven promising basic data augmentation methods and apply them to the problem to see how they perform.
+Having only a limited amount of labeled data at hand, the generation of synthetic data is a natural approach to improve the sufficiency and diversity of training data. Without such augmention, the model risks overfitting to the training data. The basic idea of augmenting data for training is to introduce minor modifications to the data such that it remains close to the original but exhibits slight variations. For computer vision tasks this means to one changes small aspects of the image while keeping the main content recognizable, e.g. change the background when the task is to detect an object in the foreground. For object detection tasks there are extensive surveys available describing applicable data augmentation methods and providing a numerical analysis of their performance, see [Kumar et al., 2023] and [Yang et al., 2022]. However, our problem sets a different task to solve: we aim to recognize objects and their luminosity relative to the rest of the image. Due to the lack of specific performance data on available methods for this particular problem, we select seven promising basic data augmentation methods and apply them to the problem to evaluate their effectiveness.
 
 ## Data Augmentation methods
 
-We follow the taxonomy of basic data augmentation methods proposed by [Kumar et al., 2023]. For common methods we use the available implementations provided by torchvision. For the last two augmentation methods there are no implementations available inside a ML framework so we implemented them manually based on the corresponding paper. In the following we introduce each method that is used for the training process and give a short heuristic explanation how we think the method could benefit or harm the training.
+We follow the taxonomy of basic data augmentation methods proposed by [Kumar et al., 2023]. For common methods, we use the available implementations provided by torchvision. The last two augmentation methods, not available within any ML framework, were manually implemented based on the respective papers. In the following, we introduce each method that is used in the training process and give a brief heuristic explanation how we think the method could benefit or harm the training.
 
 
 ### Geometric Image Manipulation
 **Rotation and Flipping**
 
-As a first basic method to augment our training data we use flipping and rotating which keeps the structure and content of the picture intact and thus do not run the risk of loosing important information. However, being that simple it is not able to generate diverse data.
+As a first basic method to augment our training data we use flipping and rotating which preserves the structure and content of the picture, thus minimizing the risk of loosing important information. However, due to its simplicity, it is not able to generate diverse data.
 
 ```python
 imgs = [original_img]
@@ -194,7 +194,7 @@ plot_images(imgs)
 
 **Shearing**
 
-By randomly shearing the picture we are -heuristically speaking- giving the model different perspectives on the picture. Technically we are changing the proportion of the objects and its spatial relations. This seems to be a good approach for our task as the luminosity of the picture should not depend on the concrete shape of the objects included. What in fact could possibly lead to problems is that we are generating black, and thus dark, regions on the border of the picture.
+By randomly shearing the picture, we -heuristically speaking- providing the model with different perspectives on the picture. Technically, we are changing the proportion of the objects and their spatial relations. This seems to be a good approach for our task as the luminosity of the picture should not depend on the specific shapes of the objects. However, one drawback is that shearing can generate black, and thus dark, regions on the border of the image.
 
 ```python
 imgs = [original_img]
@@ -209,7 +209,7 @@ plot_images(imgs)
 
 **Random Cropping and Resize**
 
-By randomly cropping a patch out of the original picture we hopefully create a different context for the objects included. This means that we try to leave out uninteresting or even disturbing elements on the edge of the picture and focus on the main content in the center. Of course this is based on the assumption that we do not loose any crucial information by cropping. As before the structure and colors of the main content stay untouched.
+Randomly cropping a patch frome the original picture aims to create a different context for the objects included. We hope to to exclude uninteresting or even distracting elements on the image edges and focus on the main content in the center. Of course this is based on the assumption that we do not loose any crucial information by cropping. As before, the structure and colors of the main content remain untouched.
 
 ```python
 imgs = [original_img]
@@ -223,7 +223,7 @@ plot_images(imgs)
 
 **Distortion**
 
-Instead of loosing a whole region of the picture and leaving another region completely untouched, we try to add uncertainty to the structure on the whole picture. By adding distortion we lower the sharpness of the edges of the objects. Since we try to enhance the model to detect regions of different light intensity which are usually not separated by sharp edges, this approach hopefully supports the learning towards the task.
+Instead of loosing a whole region of the picture and leaving another region completely untouched, we try to add uncertainty to the structure on the whole picture. By adding distortion we reduce the sharpness of the edges of the objects. Since the task possibly involves detecting regions of varying light intensity, which are usually not separated by sharp edges, this approach hopefully supports the model training.
 
 ```python
 imgs = [original_img]
@@ -246,9 +246,9 @@ plot_images(imgs)
 ![Gaussian Blur](./assets/gaussian_blur.png)
 
 ### Image Erasing
-By taking out parts of the picture one drops out information that could help to learn less sensitive information which the results in a more robust model. Known examples for Image Erasing are random erasing, cutout or hide-and-seek, see [Kumar et al., 2023].
+By taking out parts of the image one hopefully drops out dominant regions that could prevent the model from learning less sensitive information beforehand. Without them, we enhance a more robust model. However, these methods may inadvertently remove important parts relevant to our task. Known examples for Image Erasing are random erasing, cutout or hide-and-seek, see [Kumar et al., 2023].
 **Gridmask deletion**
-The perviously mentioned dropout methods have two main problems for our task. Since they delete a continuous region or an excessive amount of data they might delete important parts for our task, i.e. as our problem cannot be fully reduced to object identification we cannot be sure which part of the background is important. To overcome these problems, in [Chen et al., 2020] the so-called GridMask data augmentation method is introduced.
+The perviously mentioned dropout methods have two main problems for our task. Since they delete a continuous region or an excessive amount of data they tend to delete important parts for our task, i.e. as our problem cannot be fully reduced to object identification we cannot be sure which part of the background is important. To overcome these problems, in [Chen et al., 2020] the so-called GridMask data augmentation method is introduced.
 Here a grid consisting of small mask units is created, where the parameter $$r\in (0,1)$$ denotes the ratio of the shorter visible edge in a unit, and the unit size $$d=\text{random}(d_{min},d_{max})$$ is randomly chosen. Lastly the distances $$\delta_x,\,\delta_y\in (0,d-1)$$ between the first intact unit and the boundary of the image are also chosen randomly. For these parameters a grid mask is created which is later applied to the actual image.
 ```python
 def grid_mask(shape, r, d, delta_x, delta_y):
@@ -295,9 +295,9 @@ plot_images(imgs)
 
 # Label smoothing
 ## Motivation
-Label smoothing tackles the problem that the labels in the dataset are be noisy. As the labels are obtained by manually setting the values it is almost inevitable to have noisy labels. For classification tasks noisy labels are even more harmful as this means that a picture is misscategorized. In [Szegedy et al., 2016] the idea of label smoothing is introduced to overcome this problem: one then assumes that for a small $\varepsilon>0$ the training set label is correct with only probability $1-\varepsilon$ and incorrect otherwise.
+Label smoothing tackles the problem that the labels in the dataset are noisy. As the labels are obtained by manually setting the values, it is almost inevitable to have noisy labels. For classification tasks noisy labels are even more harmful leading to a misscategorized image. In [Szegedy et al., 2016] the idea of label smoothing is introduced to overcome this problem: one then assumes that for a small $\varepsilon>0$ the training set label is correct with only probability $1-\varepsilon$ and incorrect otherwise.
 ## Label smoothing methods
-As there are no discrete classes but continuous values we work with two different approaches to smooth the labels. First, we locally adjust the values compared to each other, meaning that we create a series of averages by using the idea of a mathematical convolution with a constant function which heuristically can be seen as averaging out the values inside a window. Second, we add a random gaussian noise to each value based on the assumptions that all labels are noisy and exact labels are not available. So by noising the labels on purpose, we hopefully get a more robust model. The implementation of the smoothing is shown here.
+As there are no discrete classes but continuous values we work with two different approaches to smooth the labels. First, we locally adjust the values compared to each other, meaning that we create a series of averages by using the idea of a mathematical convolution with a constant function which heuristically can be seen as averaging out the values inside a window. Second, we add random gaussian noise to each value, based on the assumptions that all labels are noisy and exact values are not available. So by noising the labels on purpose, we hopefully get a more robust model. The implementation details of these smoothing methods are provided below.
 ```python
 def smoothing(labels, method='moving_average', window_size=5, sigma=2):
     if method == 'moving_average':
@@ -314,16 +314,21 @@ def smoothing(labels, method='moving_average', window_size=5, sigma=2):
     return smoothed_labels
 ```
 
+
 # Evaluating Data Augmentations
+For evaluation we iterate over every possible augmentation method and select hyperparameters such that the amount of data is increased by factor eight. This value is chosen since it is the maximal factor using flipping and rotation and we want to obtain comparable results. Each augementation method is combined with either no label smoothing, moving average or gaussian smoothing. Overall we obtain 21 possible combinations of label smoothing and data augmention. For each of them the model is trained 30 times and we save the mean of all losses after each epoch.
 
+## General observations
+What immediately catches the eye, is that data augmentation in principle has a positive impact on the model's performance.
 
+Sobering, however is the impact of label smoothing. Without data augmentation it even seems to have a negative effect. At least on augmented data the models that are trained on smoothed data perform better than the ones with untreated labels. This suggests the assumption that having a certain amount of training data available is neccessary for label smoothing to work. But this question is up to another evaluation since we are focusing on small datasets.
 
 ![](/assets/compare_aug_losses.png)
 
-Fig blah: Comparison average epoch losses of different augmentations. We see that the augmentations perform similar and all significantly better then without augmentation. See [stani-stein.com/AutoHDR](https://www.stani-stein.com/AutoHDR/#evaluating-data-augmentations) for an interactive version of the plot.
+Fig 8: Comparison average epoch validation losses of different augmentations. We see that the augmentations perform similar and all significantly better then without augmentation. See [stani-stein.com/AutoHDR](https://www.stani-stein.com/AutoHDR/#evaluating-data-augmentations) for an interactive version of the plot.
 
 ## Comparing Augmentations
-
+TODO
 
 # References
 [Chen et al., 2020] Chen, Pengguang, et al. "Gridmask data augmentation." arXiv preprint arXiv:2001.04086 (2020).
