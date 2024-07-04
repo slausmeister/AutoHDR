@@ -58,7 +58,7 @@ Fig 2: On the left the settings suggested by Lightroom, on the right the setting
 The aim of the project it to write an algorithm that, given a small training dataset of RAWs with the corresponding Lightroom settings, finds a good suggestion for the settings to properly make use of the HDR colorspace.
 
 
-# Architectual Concerns
+# Architectural Concerns
 
 Our model has 8 settings to play with. *Exposure* adjusts overall brightness, ensuring a balanced level where both shadows and highlights retain detail without overexposure or underexposure. *Contrast* controls the difference between dark and light areas, essential for HDR. *Highlights* manage brightness in lighter parts, crucial for avoiding overexposure and maintaining detail in bright regions. *Shadows* adjust brightness in darker areas, vital for revealing details without making them unnaturally bright. Similarly one can adjust *Whites*, *Blacks*, *Vibrance* and *Shadows*. That is why our model needs to understand the effect of the settings on both the darkest and the brightest areas of the images at the same time. In other words, we have long range dependencies. Our choice therefore lands on a Vision Transformer.
 
@@ -159,6 +159,15 @@ We now seek to understand the attention heads. The hope being that there is a ce
 
 The ViT works on 16 times 16 tokens plus the cls token in 12 layers using 12 attention heads. For our visualization we highlight the patches that were most addend by each attention head for the cls token. We select a subset of layers and attention maps to make it a bit less convoluted.
 
+| Input | Attention Maps |
+| :------: | :------: |
+| ![Loss](./assets/attention_input.jpg) | ![Loss](./assets/attention_map.png) |
+
+Fig 7: An image we've fed into the model and a selection of attention heads. We've selected every second attention head from every second transformer layer.
+
+All though interpreting attention maps should always be done with a grain of salt, one can still clearly see that heads generally focus on specific brightness regions. This indicates that the networks suggestion is actually founded in the input data as it pays attention to similar areas in the images as a photographer would do when determining brightness settings.
+
+Overall it is fair to say that even though the underlying data is not too complicated, that is at least not taking obvious escapes such as learning specific values independent of the input.
 
 # Data Augmentation
 Having only a limited amount of labeled data at hand, the generation of synthetic data is a natural approach to improve the sufficiency and diversity of training data. Otherwise, the model could end up over-fitting to the training data. The basic idea of augmenting data for training is to make small modifications to the data such that it is close to the real one but slightly different. For computer vision tasks this means to one changes small parts of the picture such that the main content stays recognizable, e.g. change the background when the task is to detect an object in the foreground. For object detection tasks there are extensive surveys available describing applicable data augmentation methods and providing a numerical analysis of their performance, see [Kumar et al., 2023] and [Yang et al., 2022]. However, our problem sets a different task to solve: recognizing objects and their luminosity relative to the rest of the picture. Due to the lack of experience of the performance of the methods available, we pick seven promising basic data augmentation methods and apply them to the problem to see how they perform.
@@ -167,9 +176,6 @@ Having only a limited amount of labeled data at hand, the generation of syntheti
 
 We follow the taxonomy of basic data augmentation methods proposed by [Kumar et al., 2023]. For common methods we use the available implementations provided by torchvision. For the last two augmentation methods there are no implementations available inside a ML framework so we implemented them manually based on the corresponding paper. In the following we introduce each method that is used for the training process and give a short heuristic explanation how we think the method could benefit or harm the training.
 
-# Falsification attempt
-
-Given the abnormaly good 
 
 ### Geometric Image Manipulation
 **Rotation and Flipping**
@@ -316,12 +322,8 @@ def smoothing(labels, method='moving_average', window_size=5, sigma=2):
 
 Fig blah: Comparison average epoch losses of different augmentations. We see that the augmentations perform similar and all significantly better then without augmentation. See [stani-stein.com/AutoHDR](https://www.stani-stein.com/AutoHDR/#evaluating-data-augmentations) for an interactive version of the plot.
 
-## Attention Heads
-
 ## Comparing Augmentations
 
-
-## Simple Label Estimate
 
 # References
 [Chen et al., 2020] Chen, Pengguang, et al. "Gridmask data augmentation." arXiv preprint arXiv:2001.04086 (2020).
