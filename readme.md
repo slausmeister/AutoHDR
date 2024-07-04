@@ -6,7 +6,7 @@ toc_label: "Outline"
 toc_sticky: true
 ---
 
-*joint work with [Lucas Schmitt](https://structures.uni-heidelberg.de/team.php?show_member_yrc=342)*
+*joint work with [Lucas Schmitt](https://lucas-schmitt.de)*
 
 Best viewed in an HDR compatible browser (Chrome) on an HDR compatible display.
 
@@ -15,12 +15,12 @@ Modern photography software like Adobe Lightroom and Darktable play a crucial ro
 
 The workflow of shooting in RAW typically begins with capturing images using a camera set to save files in the RAW format. These files are then imported into software like Lightroom or Darktable, where photographers can adjust various settings to enhance the images. The software offers a wide range of tools for fine-tuning, such as adjusting white balance, exposure, shadows, highlights, and color saturation. This non-destructive editing process means that the original RAW file remains unchanged, and all adjustments are stored as metadata. This allows for endless experimentation and refinement until the desired outcome is achieved. The RAWs themself are usually captured as neutral as possible allowing the most flexibility in edit. This however also means, that the RAWs are usually quite flat and grey, making the editing of every photo almost a necessity. 
 
-Given the complexity and variety of adjustments available, finding the optimal settings can be a time-consuming process, especially if one edits a large set of images of an event. Therefore most photographers are deeply familiar with Lightrooms Auto Settings (Shift + A). This algorithm suggests values for some of the most important settings (Exposure, Contrast, Highlights, Shadows, Whites, Blacks, Vibrance, Saturation and some more). Most of the time these suggestions yield vibrant pictures that only need small adjustments to a subset of these settings. Therefor a usual workflow might be to apply autosettings to all images and to only retouch a subset of the settings for each image, saving a lot of time.
+Given the complexity and variety of adjustments available, finding the optimal settings can be a time-consuming process, especially if one edits a large set of images of an event. Therefore most photographers are deeply familiar with Lightrooms Auto Settings (Shift + A). This algorithm suggests values for some of the most important settings (Exposure, Contrast, Highlights, Shadows, Whites, Blacks, Vibrance, Saturation and some more). Most of the time these suggestions yield vibrant pictures that only need small adjustments to a subset of these settings. Therefore, a usual workflow might be to apply autosettings to all images and to only retouch a subset of the settings for each image, saving a lot of time.
 
 ## HDR Photography
 Since October 2023 Adobe Lightroom has added native support for high dynamic range (HDR) image editing. HDR images contain more data per pixel, allowing the image to reach higher brightness values without oversaturating shadows. An HDR compatible display will now be able to ramp up the brightness of these areas significantly, whilst still keeping the shadows dark.
 
-You can check if your current display supports HDR by comparing the two images below. If they appear similar, then your display does not support HDR. On a proper HDR display the sun should almost be blinding and shadows should be rich in detail, just as your eye would experience it in real life.
+You can check if your current display supports HDR by comparing the images below. If they appear similar, then your display does not support HDR. On a proper HDR display the sun on the right picture should almost be blinding and shadows should be rich in detail, just as your eye would experience it in real life.
 
 <table>
   <tr>
@@ -40,7 +40,7 @@ Fig 1: The image on the left is an unedited RAW image, the one in the middle has
 
 HDR technology is still in its early stages, so most displays do not support it yet. However, your phone might, as it typically offers the best display quality for the average consumer. Most laptops can not increase the brightness of a subset of pixels significantly without also increasing the brightness of dark parts. Therefore the bright parts of the HDR image are artificially darkened, destroying the HDR effect.
 
-The only problem with Adobe's HDR implementation is that the autosettings do not consider the expanded brightness space. They tend to compress the brightness scale down to the usual allowed brightness scale. Therefore the blinding sunset becomes just bright and the dark shadow becomes brighter. The whole image now seems as grey and if it were not using HDR. A photographer would now need to adjust every single setting to restore the HDR effect, negating the usefulness of the autosettings.
+The only problem with Adobe's HDR implementation is that the autosettings do not consider the expanded brightness space. They tend to compress the brightness scale down to the usual allowed brightness scale. Therefore the blinding sunset becomes just bright and the dark shadow becomes brighter. The whole image now seems as grey as if it were not using HDR. A photographer would now need to adjust every single setting to restore the HDR effect, negating the usefulness of the autosettings.
 
 <table>
   <tr>
@@ -60,10 +60,10 @@ The aim of the project it to write an algorithm that, given a small training dat
 
 # Architectual Concerns
 
-Our model has 8 settings to play with. Exposure adjusts overall brightness, ensuring a balanced level where both shadows and highlights retain detail without overexposure or underexposure. Contrast controls the difference between dark and light areas, essential for HDR. Highlights manage brightness in lighter parts, crucial for avoiding overexposure and maintaining detail in bright regions. Shadows adjust brightness in darker areas, vital for revealing details without making them unnaturally bright. In other words or model needs to understand the effect of the settings on both the darkest and the brightest areas of the images at the same time; we have long range dependencies. Our choice therefore lands on a Vision Transformer.
+Our model has 8 settings to play with. *Exposure* adjusts overall brightness, ensuring a balanced level where both shadows and highlights retain detail without overexposure or underexposure. *Contrast* controls the difference between dark and light areas, essential for HDR. *Highlights* manage brightness in lighter parts, crucial for avoiding overexposure and maintaining detail in bright regions. *Shadows* adjust brightness in darker areas, vital for revealing details without making them unnaturally bright. Similarly one can adjust *Whites*, *Blacks*, *Vibrance* and *Shadows*. That is why our model needs to understand the effect of the settings on both the darkest and the brightest areas of the images at the same time. In other words, we have long range dependencies. Our choice therefore lands on a Vision Transformer.
 
 
-The settings are all in the interval (-100,100) except for Exposure which lies in (-5,5). We can scale all these intervals down to (-1,1) and train our model to $(-1,1)^n$ by choosing $\operatorname{tanh}()$ as the final activation of our ViT. After training we can rescale the logits to use them in Lightroom. If we want to use the standard Google ViT we can just replace the final layer as follows:
+The settings are all in the interval (-100,100) except for Exposure which lies in (-5,5). So, we scale all these intervals down to (-1,1) and train our model to $(-1,1)^n$ by choosing $\operatorname{tanh}()$ as the final activation of our ViT. After training we rescale the logits to use them in Lightroom. To use the standard Google ViT, we replace the final layer as follows:
 
 ```python
 model = ViTForImageClassification(config)
@@ -76,7 +76,7 @@ model.classifier = nn.Sequential(
 
 
 # Loading and preprocessing Data
-One of the main challenges is to load and preprocess the available data in an efficient way. As we are using a Vision Transformer that is pretrained on normalized rgb images of size 224x224 it is senseful to transform our data to the same shape. So, with the following workflow we preprocess RAW data to PyTorch-tensors containing the  normalized image data.
+One of the main challenges is to load and preprocess the available data in an efficient way. Since we are using a Vision Transformer that is pretrained on normalized rgb images of size 224x224, it is useful to transform our data to the same shape. So, with the following workflow we preprocess RAW data to PyTorch-tensors containing the normalized image data.
 ```python
 def preprocess_image(self, rgb_array):
     preprocess = transforms.Compose([
@@ -96,13 +96,13 @@ values = [
 ]
 ```
 Throughout the process of development it turned out that loading a RAW using rawpy is the most time expensive task in the data-preparation process.
-Nevertheless we want to stick to the PyTorch-Dataset framework to make use of the Pytorch-Dataloader later on. This means that we need a framework where training data can be directly accessed without reloading the RAWs every time.
+Nevertheless, we want to stick to the PyTorch-Dataset framework to make use of the Pytorch-Dataloader later on. As a consequence, we need a framework where training data can be directly accessed without reloading the RAWs every time.
 
-To solve this problem we separated the Dataset architecture in three parts: RawImageDatatset, ImageDataset and AugmentedDataset. The task distribution is that the first one is used to access to RAW and XMP files and does all preprocessing work, the second one uses a RawImageDataset to store all needed data in a way that it can be accessed time efficiently. The last one offers all possibilities of data augmentation or label smoothing without interfering with the technical parts.
+To solve this problem we separated the Dataset architecture in three parts: *RawImageDatatset*, *ImageDataset* and *AugmentedDataset*. The task distribution is now the following: the first one is used to access the RAW and XMP files and does all preprocessing work, the second one uses a RawImageDataset to store all needed data in a way that it can be accessed time efficiently. The last one offers all possibilities of data augmentation or label smoothing without interfering with the technical parts.
 
-The workflow is then the following: we initialize a RawImageDataset that enables us to access preprocessed data. We then hand this raw data to a ImageDataset which loads every image via the RawImageDataset framework and then stores it as PyTorch-tensors. We are now able to directly access the tensors which are rapidly loaded using the torch.load function.
+To bring theses structures toghether, we initialize a RawImageDataset that enables us to access preprocessed data. We then hand this raw data to a ImageDataset which loads every image via the RawImageDataset framework and then stores it as PyTorch-tensors. We are now able to directly access the tensors which are rapidly loaded using the torch.load function.
 
-Since we stick to the general framework we are able to use methods from torch.utils.data that do further ML related preprocessing as splitting the dataset or creating batches for training.
+Since we stick to the general framework, we are able to use methods from torch.utils.data that do further ML related preprocessing as splitting the dataset or creating batches for training.
 ```python
 raw_data = RawImageDataset(directory_path)
 tensor_data = ImageDataset(raw_data, reload_data=reload_data)
@@ -112,13 +112,13 @@ base_data, val_data = torch.utils.data.random_split(tensor_data, validation_spli
 
 # Model training
 
-Our training data is quite limited (~350 images). Thus we followed two approaches from the beginning: Utilizing a pretrained foundation model and data augmentation.
+Our training data is quite limited (~350 images). Thus, we followed two approaches from the beginning: utilizing a pretrained foundation model and data augmentation.
 
 As the labels are continuous values we employ an MSE loss and train using Adam in 10 epochs using batches of size 12 with a validation split of [0.8, 0.2] and a low learning rate of 0.0005.
 
 ## With and without pretraining
 
-We initialize Google's vit-base-patch16-224 ViT, change out the classifier and start training. We expected, that during fine tuning we'd need to carefully consider which layers to freeze and which layers to train. In actuality the naive approach of letting the model adjust all training parameters with the same learning rate works incredibly well converging after essentially one epoch. Therefore we also compared training without pretraining and see, that whilst convergence is a bit slower, the model also learns to capture the correct relationship.
+We initialize Google's vit-base-patch16-224 ViT, replace the classifier and start training. We expected, that during fine tuning we would need to carefully consider which layers to freeze and which layers to train. In actuality the naive approach of letting the model adjust all training parameters with the same learning rate works incredibly well converging after essentially one epoch. Therefore we also compared training without pretraining and see, that whilst convergence is a bit slower, the model also learns to capture the correct relationship.
 
 | With Pretraining | Without Pretraining |
 | :------: | :------: |
@@ -126,13 +126,13 @@ We initialize Google's vit-base-patch16-224 ViT, change out the classifier and s
 
 Fig 3: We see that the network pretty much converges after the first epoch until it eventually overfits. We will later try to mitigate the overfitting using label smoothing (see section [Label Smoothing](#label-smoothing)). In both cases the final loss is usually around 0.02.
 
-Even though both the pre- and the unpretrained approach both prove very successful, we try to further push the effectiveness of out training. The idea is, that a photographer might want to establish a certain style for a single shooting. If he now were to edit a small subset of these images in that style, the algorithm can quickly pick up on it and edit the rest. For this however we need to learn effectively on very small datasets. We therefore introduce data augmentation. It will prove similarly effective (see section [Evaluating Data Augmentations](#Evaluating-Data-Augmentations)).
+Even though both the pre- and the unpretrained approach both prove very successful, we try to further push the effectiveness of our training. The idea is that a photographer might want to establish a certain style for a single shooting. If he now were to edit a small subset of these images in that style, the algorithm can quickly pick up on it and edit the rest. For this however we need to learn effectively on very small datasets. We therefore introduce data augmentation. It will prove similarly effective (see section [Evaluating Data Augmentations](#Evaluating-Data-Augmentations)).
 
 # Falsification Attempt
- Before we pursue data augmentation, we want to understand the networks almost unreasonable performance a bit better. For this we investigate two things: The training data and the attention heads.
+ Before we pursue data augmentation, we want to understand the networks almost unreasonable performance a bit better. For this, we investigate the training data and the attention heads.
 
 ## Understanding the Data
-Our first suspicion for the unreasonable performance of our network is, that the data has a very simple structure. It might be, that Settings such as Exposure or Saturation are essentially the same for all images in the training data. If this were the case, the network could always make a constant guess without being penalized significantly. We are therefore interested in the underlying statistics of the training labels.
+Our first suspicion for the unreasonable performance of our network is, that the data has a very simple structure. It might be possible, that settings such as Exposure or Saturation are essentially the same for all images in the training data. If this were the case, the network could always make a constant guess without being penalized significantly. We are therefore interested in the underlying statistics of the training labels.
 
 ![](./assets/data_statistics.png)
 
@@ -146,13 +146,13 @@ Fig 5: In red the bias value for each setting and in blue the average connection
 
 We can see that this hypothesis was false. There is no clear pattern of a specific bias with low connections to it. Keep in mind that due to regularization the average magnitude of incoming connections is also essentially the same for all nodes. Furthermore the plot is anything but constant for different runs indicating that the network is actually responding to the image and not just making a fixed guess.
 
-Still, we suspect that a fixed guess might perform quite well. We therefore calculate the mean and standard deviation for each label and construct a simple guesser that picks its label suggestions from a normal distribution with the calculated variance and standard deviation. This guesser considers only the label space and does not take the input image into consideration
+Still, we suspect that a fixed guess might perform quite well. We therefore calculate the mean and standard deviation for each label and construct a simple guesser that picks its label suggestions from a normal distribution with the calculated variance and standard deviation. This guesser considers only the label space and does not take the input image into consideration.
 
 ![](./assets/mean_and_std.png)
 
 Fig 6: Mean and standard deviation of labels in training dataset.
 
-We evaluate this guesser on the validation set with an 80, 20 training - validation split an get a quite consistent loss of ~8%. This is definitely a very good performance considering the guesser did not look at the actual image. It is therefore fair to say that the underlying data is quite homogenous. Still the random guesser is fortunately outperformed by our ViT model, which consistently achieves loss rates of around ~2%.
+We evaluate this guesser on the validation set with an 80, 20 training - validation split and get a quite consistent loss of ~8%. This is definitely a very good performance considering the guesser did not look at the actual image. It is therefore fair to say that the underlying data is quite homogenous. Still, the random guesser is fortunately outperformed by our ViT model, which consistently achieves loss rates of around ~2%.
 
 ## Understanding the Attention Heads
 We now seek to understand the attention heads. The hope being that there is a certain structure here, that indicates that the network is actually considering different aspects of the input image. As the settings affect the brightness spectrum of the image, we hypothesize that the network should pay attention to shadows, highlights and especially bright light sources (such as the sun).
