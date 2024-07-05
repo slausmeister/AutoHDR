@@ -6,9 +6,13 @@ toc_label: "Outline"
 toc_sticky: true
 ---
 
-*joint work with [Lucas Schmitt](https://lucas-schmitt.de)*
+*joint work of [Lucas Schmitt](https://lucas-schmitt.de) and [Viktor Stein](https://stani-stein.com)*
 
 Best viewed in an HDR compatible browser (Chrome) on an HDR compatible display.
+
+# Abstract
+This project develops an algorithm to optimize high dynamic range (HDR) image editing settings in Adobe Lightroom for RAW images. Current auto-adjustment algorithms do not fully utilize HDR's expanded brightness spectrum, resulting in less dynamic images. Our solution employs a Vision Transformer (ViT) model trained on a small dataset of RAW images with corresponding Lightroom settings. The model predicts optimal adjustments for exposure, contrast, highlights, shadows, whites, blacks, vibrance, and saturation, enhancing HDR image quality. Key techniques include data augmentation and label smoothing to improve model performance. This algorithm offers photographers a tool for achieving superior HDR image enhancements with minimal manual adjustments.
+
 
 # Introduction
 Modern photography software like Adobe Lightroom and Darktable play a crucial role in the digital photography workflow, particularly for photographers who shoot in RAW format. RAW files contain unprocessed data directly from a camera's image sensor, preserving the highest possible quality and providing extensive flexibility for post-processing. Unlike JPEGs, which are compressed and processed in-camera, RAW files allow photographers to make significant adjustments to exposure, color balance, contrast, and other parameters without degrading image quality. This capability is essential for professional photographers and enthusiasts seeking to achieve the highest quality results.
@@ -60,7 +64,7 @@ The aim of the project it to write an algorithm that, given a small training dat
 
 # Architectural Concerns
 
-Our model has 8 settings to play with. *Exposure* adjusts overall brightness, ensuring a balanced level where both shadows and highlights retain detail without overexposure or underexposure. *Contrast* controls the difference between dark and light areas, essential for HDR. *Highlights* manage brightness in lighter parts, crucial for avoiding overexposure and maintaining detail in bright regions. *Shadows* adjust brightness in darker areas, vital for revealing details without making them unnaturally bright. Similarly one can adjust *Whites*, *Blacks*, *Vibrance* and *Shadows*. That is why our model needs to understand the effect of the settings on both the darkest and the brightest areas of the images at the same time. In other words, we have long range dependencies. Our choice therefore lands on a Vision Transformer.
+Our model has 8 settings to play with. *Exposure* adjusts overall brightness, ensuring a balanced level where both shadows and highlights retain detail without overexposure or underexposure. *Contrast* controls the difference between dark and light areas, essential for HDR. *Highlights* manage brightness in lighter parts, crucial for avoiding overexposure and maintaining detail in bright regions. *Shadows* adjust brightness in darker areas, vital for revealing details without making them unnaturally bright. Similarly one can adjust *Whites*, *Blacks*, *Vibrance* and *Shadows*. That is why our model needs to understand the effect of the settings on both the darkest and the brightest areas of the images at the same time. In other words, we have long range dependencies. Our choice therefore lands on the Vision Transformer introduced in [Dosovitskiy et al., 2020].
 
 
 The settings are all in the interval (-100,100) except for Exposure which lies in (-5,5). So, we scale all these intervals down to (-1,1) and train our model to $(-1,1)^n$ by choosing $\operatorname{tanh}()$ as the final activation of our ViT. After training we rescale the logits to use them in Lightroom. To use the standard Google ViT, we replace the final layer as follows:
@@ -112,7 +116,7 @@ base_data, val_data = torch.utils.data.random_split(tensor_data, validation_spli
 
 # Model training
 
-Our training data is quite limited (~350 images). Thus, we followed two approaches from the beginning: utilizing a pretrained foundation model and data augmentation.
+Our training data is quite limited (~350 images). Thus, we followed two approaches from the beginning: utilizing a pretrained foundation model and data augmentation. In contrast to the recommendation of using high resolution images for downstream tasks [Dosovitskiy et al., 2020], we instead scale down to 244 x 244 to match the pretraining data. We did this initially for faster training during the prototyping phase, but noticed, that this resolution is sufficient for our task.
 
 As the labels are continuous values we employ an MSE loss and train using Adam in 10 epochs using batches of size 12 with a validation split of [0.8, 0.2] and a low learning rate of 0.0005.
 
@@ -209,7 +213,7 @@ plot_images(imgs)
 
 **Random Cropping and Resize**
 
-Randomly cropping a patch frome the original picture aims to create a different context for the objects included. We hope to to exclude uninteresting or even distracting elements on the image edges and focus on the main content in the center. Of course this is based on the assumption that we do not loose any crucial information by cropping. As before, the structure and colors of the main content remain untouched.
+Randomly cropping a patch from the original picture aims to create a different context for the objects included. We hope to to exclude uninteresting or even distracting elements on the image edges and focus on the main content in the center. Of course this is based on the assumption that we do not loose any crucial information by cropping. As before, the structure and colors of the main content remain untouched.
 
 ```python
 imgs = [original_img]
@@ -294,10 +298,12 @@ plot_images(imgs)
 ![Local Rotation](./assets/local_rotation.png)
 
 # Label smoothing
-## Motivation
-Label smoothing tackles the problem that the labels in the dataset are noisy. As the labels are obtained by manually setting the values, it is almost inevitable to have noisy labels. For classification tasks noisy labels are even more harmful leading to a misscategorized image. In [Szegedy et al., 2016] the idea of label smoothing is introduced to overcome this problem: one then assumes that for a small $\varepsilon>0$ the training set label is correct with only probability $1-\varepsilon$ and incorrect otherwise.
+Label smoothing tackles the problem that the labels in the dataset are noisy. This noise is especially relevant in our dataset, as in the artistic process of editing a photo there are no right or wrong settings. Furthermore if you were to give a photographer the same photo to edit twice, we are quite certain, that the result would not be the same.
+
+[Szegedy et al., 2016] introduces label smoothing for classification tasks, by assuming that for a small $\varepsilon>0$ the training set label is correct with only probability $1-\varepsilon$ and incorrect otherwise. We now strive to come up with a similar mechanism for regression tasks reflecting the lack of a correct choice in the task.
+
 ## Label smoothing methods
-As there are no discrete classes but continuous values we work with two different approaches to smooth the labels. First, we locally adjust the values compared to each other, meaning that we create a series of averages by using the idea of a mathematical convolution with a constant function which heuristically can be seen as averaging out the values inside a window. Second, we add random gaussian noise to each value, based on the assumptions that all labels are noisy and exact values are not available. So by noising the labels on purpose, we hopefully get a more robust model. The implementation details of these smoothing methods are provided below.
+As there are no discrete classes but continuous values we work with two different approaches to smooth the labels. In the first approach, given a sequence of training labels, we apply a moving average across the dataset for each label dimension. For the second approach, we add random gaussian noise to each value, based on the assumptions that whilst the label does not need the exact value as given in the training data, it should still be roughly in the same ballpark. The implementation details of these smoothing methods are provided below. We hope, that this smoothing decreases overfitting.
 ```python
 def smoothing(labels, method='moving_average', window_size=5, sigma=2):
     if method == 'moving_average':
@@ -316,19 +322,19 @@ def smoothing(labels, method='moving_average', window_size=5, sigma=2):
 
 
 # Evaluating Data Augmentations
-For evaluation we iterate over every possible augmentation method and select hyperparameters such that the amount of data is increased by factor eight. This value is chosen since it is the maximal factor using flipping and rotation and we want to obtain comparable results. Each augementation method is combined with either no label smoothing, moving average or gaussian smoothing. Overall we obtain 21 possible combinations of label smoothing and data augmention. For each of them the model is trained 30 times and we save the mean of all losses after each epoch.
-
-## General observations
-What immediately catches the eye, is that data augmentation in principle has a positive impact on the model's performance.
-
-Sobering, however is the impact of label smoothing. Without data augmentation it even seems to have a negative effect. At least on augmented data the models that are trained on smoothed data perform better than the ones with untreated labels. This suggests the assumption that having a certain amount of training data available is neccessary for label smoothing to work. But this question is up to another evaluation since we are focusing on small datasets.
+For evaluation we iterate over every possible augmentation method and select hyperparameters such that the amount of data is increased by factor eight. This value is chosen since it is the maximal factor using flipping and rotation and we want to obtain comparable results. Each augmentation method is combined with either no label smoothing, moving average or gaussian smoothing. Overall we obtain 21 possible combinations of label smoothing and data augmentation. For each of them the model is trained 30 times and we save the mean of all losses after each epoch.
 
 ![](/assets/compare_aug_losses.png)
 
-Fig 8: Comparison average epoch validation losses of different augmentations. We see that the augmentations perform similar and all significantly better then without augmentation. See [stani-stein.com/AutoHDR](https://www.stani-stein.com/AutoHDR/#evaluating-data-augmentations) for an interactive version of the plot.
+Fig 8: Comparison average epoch validation losses of different augmentations. See [stani-stein.com/AutoHDR](https://www.stani-stein.com/AutoHDR/#evaluating-data-augmentations) for an interactive version of the plot.
 
-## Comparing Augmentations
-TODO
+What immediately catches the eye, is that data augmentation in principle has a positive impact on the model's performance.
+
+Sobering, however is the impact of label smoothing. Without data augmentation it even seems to have a negative effect. At least on augmented data the models that are trained on smoothed data perform better than the ones with untreated labels. This suggests the assumption that having a certain amount of training data available is necessary for label smoothing to work. But this question is up to another evaluation since the observed effect is not pronounced.
+
+
+# Conclusion
+
 
 # References
 [Chen et al., 2020] Chen, Pengguang, et al. "Gridmask data augmentation." arXiv preprint arXiv:2001.04086 (2020).
@@ -340,3 +346,5 @@ TODO
 [Szegedy et al., 2016] Szegedy, Christian, et al. "Rethinking the inception architecture for computer vision." Proceedings of the IEEE conference on computer vision and pattern recognition. (2016).
 
 [Yang et al., 2022] Yang, Suorong, et al. "Image data augmentation for deep learning: A survey." arXiv preprint arXiv:2204.08610 (2022).
+
+[Dosovitskiy et al., 2020] Dosovitskiy, Alexey et al. “An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale.” ArXiv abs/2010.11929 (2020): n. pag.
